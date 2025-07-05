@@ -1,44 +1,52 @@
-name: CI/CD Pipeline-prometheus
+name: CI/CD Pipeline‑Prometheus
 
 on:
   push:
-    branches: [ master ]
+    branches: [main]
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
+    - name: Checkout code
+      uses: actions/checkout@v3
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
 
-      - name: Install dependencies
-        run: npm install
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build Docker image
-        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/my-prometheus:latest .
+    - name: Build and push Prometheus image
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        push: true
+        tags: ${{ secrets.DOCKER_USERNAME }}/my‑prometheus:latest
 
-      - name: Login to Docker Hub
-        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+    - name: Scan image for vulnerabilities
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ secrets.DOCKER_USERNAME }}/my‑prometheus:latest
+        format: table
+        severity: CRITICAL,HIGH
+        vuln-type: os,library
 
-      - name: Push image to Docker Hub
-        run: docker push ${{ secrets.DOCKER_USERNAME }}/my-prometheus:latest
+    - name: Deploy to EC2 via SSH
+      uses: appleboy/ssh-action@v1.2.1
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USER }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        fingerprint: ${{ secrets.EC2_SSH_FINGERPRINT }} # verify host key :contentReference[oaicite:1]{index=1}
+        script_stop: true # stop on first error :contentReference[oaicite:2]{index=2}
+        script: |
+          docker pull ${{ secrets.DOCKER_USERNAME }}/my‑prometheus:latest
+          docker stop myprometheus || true
+          docker rm myprometheus || true
+          docker run -d --name myprometheus -p 9090:9090 ${{ secrets.DOCKER_USERNAME }}/my‑prometheus:latest
 
-      - name: ✅ Done
-        run: echo "Image pushed to Docker Hub!"
-
-      - name: Deploy to EC2 via SSH
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            docker pull ${{ secrets.DOCKER_USERNAME }}/my-prometheus:latest
-            docker stop myprometheus || true && docker rm myprometheus || true
-            docker run -d --name myprometheus -p 9090:9090 ${{ secrets.DOCKER_USERNAME }}/my-prometheus:latest
