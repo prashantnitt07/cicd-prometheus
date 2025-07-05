@@ -26,12 +26,12 @@ jobs:
       with:
         context: .
         push: true
-        tags: ${{ secrets.DOCKER_USERNAME }}/my‑prometheus:latest
+        tags: ${{ secrets.DOCKER_USERNAME }}/myprometheus:latest
 
     - name: Scan image for vulnerabilities
       uses: aquasecurity/trivy-action@master
       with:
-        image-ref: ${{ secrets.DOCKER_USERNAME }}/my‑prometheus:latest
+        image-ref: ${{ secrets.DOCKER_USERNAME }}/myprometheus:latest
         format: table
         severity: CRITICAL,HIGH
         vuln-type: os,library
@@ -45,8 +45,8 @@ jobs:
         fingerprint: ${{ secrets.EC2_SSH_FINGERPRINT }} # verify host key :contentReference[oaicite:1]{index=1}
         script_stop: true # stop on first error :contentReference[oaicite:2]{index=2}
         script: |
-          docker pull ${{ secrets.DOCKER_USERNAME }}/my‑prometheus:latest
+          docker pull ${{ secrets.DOCKER_USERNAME }}/myprometheus:latest
           docker stop myprometheus || true
           docker rm myprometheus || true
-          docker run -d --name myprometheus -p 9090:9090 ${{ secrets.DOCKER_USERNAME }}/my‑prometheus:latest
+          docker run -d --name myprometheus -p 9090:9090 ${{ secrets.DOCKER_USERNAME }}/myprometheus:latest
 
